@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cppcheck>
+  <!-- Only check src/ directory, exclude dependencies -->
+  <paths>
+    <path>src</path>
+  </paths>
+
+  <suppressions>
+    <!-- Style suppressions for non-critical warnings -->
+
+    <!-- Const parameter pointers - mostly in looping/iteration code -->
+    <suppression>
+      <fileName>src/loopyAdapterIouring.c</fileName>
+      <errorId>constParameterPointer</errorId>
+    </suppression>
+    <suppression>
+      <fileName>src/loopyConnPool.c</fileName>
+      <errorId>constParameterPointer</errorId>
+    </suppression>
+    <suppression>
+      <fileName>src/loopyPipe.c</fileName>
+      <errorId>constParameterPointer</errorId>
+    </suppression>
+
+    <!-- Const variable pointers - mostly in iteration/lookup code -->
+    <suppression>
+      <fileName>src/loopyClusterRegistry.c</fileName>
+      <errorId>constVariablePointer</errorId>
+    </suppression>
+    <suppression>
+      <fileName>src/loopyConcurrencyPool.c</fileName>
+      <errorId>constVariablePointer</errorId>
+    </suppression>
+    <suppression>
+      <fileName>src/loopyPubSub.c</fileName>
+      <errorId>constVariablePointer</errorId>
+    </suppression>
+    <suppression>
+      <fileName>src/loopyRateLimit.c</fileName>
+      <errorId>constVariablePointer</errorId>
+    </suppression>
+    <suppression>
+      <fileName>src/loopyStressCLI.c</fileName>
+      <errorId>constVariablePointer</errorId>
+    </suppression>
+    <suppression>
+      <fileName>src/loopyUnitTest.c</fileName>
+      <errorId>constVariablePointer</errorId>
+    </suppression>
+
+    <!-- Const array variables - trivial style -->
+    <suppression>
+      <fileName>src/loopyUnitTest.c</fileName>
+      <errorId>constVariable</errorId>
+    </suppression>
+
+    <!-- Unused struct members - part of stable API, cannot remove -->
+    <suppression>
+      <fileName>src/loopyAdapterIouring.c</fileName>
+      <errorId>unusedStructMember</errorId>
+    </suppression>
+    <suppression>
+      <fileName>src/loopyRateLimit.c</fileName>
+      <errorId>unusedStructMember</errorId>
+    </suppression>
+    <suppression>
+      <fileName>src/loopyTLS.c</fileName>
+      <errorId>unusedStructMember</errorId>
+    </suppression>
+    <suppression>
+      <fileName>src/loopyUDP.c</fileName>
+      <errorId>unusedStructMember</errorId>
+    </suppression>
+    <suppression>
+      <fileName>src/loopyUnitTest.c</fileName>
+      <errorId>unusedStructMember</errorId>
+    </suppression>
+
+    <!-- Unread variables - trivial -->
+    <suppression>
+      <fileName>src/loopyTLS.c</fileName>
+      <errorId>unreadVariable</errorId>
+    </suppression>
+    <suppression>
+      <fileName>src/loopyUnitTest.c</fileName>
+      <errorId>unreadVariable</errorId>
+    </suppression>
+
+    <!-- Unused functions - part of public API -->
+    <suppression>
+      <fileName>src/loopy.c</fileName>
+      <errorId>unusedFunction</errorId>
+    </suppression>
+    <suppression>
+      <fileName>src/loopyAdapterIouring.c</fileName>
+      <errorId>unusedFunction</errorId>
+    </suppression>
+
+    <!-- Missing includes from dependencies -->
+    <suppression>
+      <fileName>src/loopyTLS.c</fileName>
+      <errorId>missingInclude</errorId>
+    </suppression>
+
+    <!-- Unused datakit functions -->
+    <suppression>
+      <fileName>deps/datakit/src/flexCapacityManagement.h</fileName>
+      <errorId>unusedFunction</errorId>
+    </suppression>
+
+    <!-- Code flow analysis limitations -->
+    <suppression>
+      <fileName>src/loopyUnitTest.c</fileName>
+      <errorId>checkLevelNormal</errorId>
+    </suppression>
+  </suppressions>
+</cppcheck>

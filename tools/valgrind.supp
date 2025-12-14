@@ -1,0 +1,85 @@
+# Valgrind suppression file for loopy
+#
+# This file contains suppressions for known issues in system libraries
+# that are not bugs in loopy itself.
+
+# glibc dlopen/dlclose related leaks (common, not actionable)
+{
+   glibc_dlopen_leak
+   Memcheck:Leak
+   ...
+   fun:dlopen*
+   ...
+}
+
+{
+   glibc_dlclose_leak
+   Memcheck:Leak
+   ...
+   fun:dlclose*
+   ...
+}
+
+# pthread initialization (one-time allocations)
+{
+   pthread_create_leak
+   Memcheck:Leak
+   match-leak-kinds: possible
+   ...
+   fun:pthread_create*
+   ...
+}
+
+# getaddrinfo resolver allocations (cached by glibc)
+{
+   getaddrinfo_leak
+   Memcheck:Leak
+   ...
+   fun:getaddrinfo
+   ...
+}
+
+{
+   gethostbyname_leak
+   Memcheck:Leak
+   ...
+   fun:gethostbyname*
+   ...
+}
+
+# NSS (Name Service Switch) module loading
+{
+   nss_load_leak
+   Memcheck:Leak
+   ...
+   fun:__nss_*
+   ...
+}
+
+# OpenSSL initialization (if used)
+{
+   openssl_init_leak
+   Memcheck:Leak
+   ...
+   fun:OPENSSL_init*
+   ...
+}
+
+# libc locale initialization
+{
+   locale_init_leak
+   Memcheck:Leak
+   ...
+   fun:setlocale
+   ...
+}
+
+# Standard I/O buffer allocations
+{
+   stdio_buffer_leak
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:_IO_*
+   ...
+}

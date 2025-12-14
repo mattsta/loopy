@@ -1,0 +1,7 @@
+build*/
+Testing*/
+project-*/
+audit/
+deps/.local.cmake
+deps/datakit
+deps/mbedtls
