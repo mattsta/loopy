@@ -204,14 +204,17 @@ struct io_uring_sqe {
             uint16_t buf_group;
         };
         uint64_t optval;
-    };
+    } __attribute__((packed));  /* CRITICAL: prevent padding, match kernel layout */
     uint16_t personality;
     union {
         int32_t splice_fd_in;
         uint32_t file_index;
     };
-    uint64_t __pad2[2];
+    uint64_t __pad2[1];  /* kernel SQE is 64 bytes total */
 };
+
+/* Compile-time size verification */
+_Static_assert(sizeof(struct io_uring_sqe) == 64, "io_uring_sqe must be exactly 64 bytes");
 
 struct io_uring_cqe {
     uint64_t user_data;
@@ -619,8 +622,11 @@ static uint64_t ioUringFileOpAllocate(IoUringState *u,
  * @return Pointer to operation, or NULL if not found
  */
 static loopyIoUringFileOp *ioUringFileOpFind(IoUringState *u, uint64_t id) {
+    /* Strip bit 63 if present - callers may pass id with or without the marker bit */
+    const uint64_t idToFind = id & ~(1ULL << 63);
+
     for (size_t i = 0; i < u->fileState.opsSize; i++) {
-        if (u->fileState.ops[i].active && u->fileState.ops[i].id == id) {
+        if (u->fileState.ops[i].active && u->fileState.ops[i].id == idToFind) {
             return &u->fileState.ops[i];
         }
     }

@@ -10692,7 +10692,7 @@ static int test_iouring_link_null_safety(void) {
     TEST_ASSERT(emptyChain != NULL, "emptyChain != NULL should be true");
     TEST_ASSERT(loopyIoUringLinkChainLength(emptyChain) == 0, "loopyIoUringLinkChainLength(emptyChain) == 0 should be true");
     TEST_ASSERT(
-        !loopyIoUringLinkChainSubmit(emptyChain), "!loopyIoUringLinkChainSubmit(emptyChain) should be true"); /* Empty chain should fail */
+        !loopyIoUringLinkChainSubmit(emptyChain), "!loopyIoUringLinkChainSubmit(emptyChain) should be true"); /* Empty chain should fail + free */
 
     /* NULL chain submit and length */
     TEST_ASSERT(!loopyIoUringLinkChainSubmit(NULL), "!loopyIoUringLinkChainSubmit(NULL) should be true");
@@ -10700,6 +10700,9 @@ static int test_iouring_link_null_safety(void) {
 
     /* Free NULL chain (should not crash) */
     loopyIoUringLinkChainFree(NULL);
+
+    /* Free the first test chain */
+    loopyIoUringLinkChainFree(chain);
 
     /* Discard a chain without submitting */
     chain = loopyIoUringLinkChainNew(l, LOOPY_IOURING_LINK_SOFT);
@@ -10945,6 +10948,7 @@ static int test_timer_oneshot_ms_seconds(void) {
     loopyMain(l);
     TEST_ASSERT_EQ(ctx.callCount, 1, "ms timer should fire once");
 
+    loopyDelete(l);  /* Delete first before reassigning */
 
     /* Test that the API exists (seconds version is just a multiplier) */
     l = loopyNew(128);
@@ -11019,6 +11023,7 @@ static int test_timer_periodic_ms_seconds(void) {
     loopyMain(l);
     TEST_ASSERT(ctx.callCount >= 3, "ms timer should fire multiple times");
 
+    loopyDelete(l);  /* Delete first before reassigning */
 
     /* Test that the API exists (seconds version is just a multiplier) */
     l = loopyNew(128);
