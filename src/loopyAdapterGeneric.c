@@ -82,7 +82,7 @@ static bool loopyInternalResize(loopyLoop *l, size_t setSize) {
 static void loopyInternalFree(loopyLoop *l) {
     if (l) {
         zfree(l->state);
-        l->state = NULL;  /* Clear state pointer to prevent double-free */
+        l->state = NULL; /* Clear state pointer to prevent double-free */
     }
 }
 

@@ -15,9 +15,9 @@
  *   ./examples/timer_example --test    # Test mode: runs quick timer sequence
  */
 
-#include "loopy.h"
-#include "loopySignal.h"
-#include "loopyTimer.h"
+#include "../src/loopy.h"
+#include "../src/loopySignal.h"
+#include "../src/loopyTimer.h"
 
 #include "../deps/datakit/src/datakit.h"
 

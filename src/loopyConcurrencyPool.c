@@ -9,8 +9,8 @@
  *   http://www.apache.org/licenses/LICENSE-2.0
  */
 
-#include "loopyPlatform.h"
 #include "loopyConcurrencyPool.h"
+#include "loopyPlatform.h"
 
 #include "../deps/datakit/src/datakit.h"
 #include "../deps/rax/src/rax.h"

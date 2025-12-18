@@ -91,7 +91,7 @@ static void loopyInternalFree(loopyLoop *l) {
 #endif
         zfree(state->events);
         zfree(state);
-        l->state = NULL;  /* Clear state pointer to prevent double-free */
+        l->state = NULL; /* Clear state pointer to prevent double-free */
     }
 }
 

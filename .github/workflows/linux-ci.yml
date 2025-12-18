@@ -2,9 +2,9 @@ name: Linux CI
 
 on:
   push:
-    branches: [main, master, develop]
+    branches: [main, next, develop]
   pull_request:
-    branches: [main, master, develop]
+    branches: [main, next, develop]
   workflow_dispatch:
 
 # Workflow-wide environment variables
@@ -23,8 +23,11 @@ env:
   #
   # To re-enable: Change this to 'true' when ready to continue io_uring work
   # ============================================================================
-  ENABLE_IOURING_TESTS: 'false'
-  ENABLE_CI_TESTING: 'false'
+  ENABLE_IOURING_TESTS: 'true'
+
+  # If ENABLE_CI_TESTING is not 'true' then only check compiles, but don't
+  # run tests or report test failures.
+  ENABLE_CI_TESTING: 'true'
 
 jobs:
   # ==========================================================================

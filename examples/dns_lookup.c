@@ -14,9 +14,9 @@
  *   ./examples/dns_lookup --test    # Test mode: resolves localhost
  */
 
-#include "loopy.h"
-#include "loopyDNS.h"
-#include "loopyTimer.h"
+#include "../src/loopy.h"
+#include "../src/loopyDNS.h"
+#include "../src/loopyTimer.h"
 
 #include <stdio.h>
 #include <stdlib.h>

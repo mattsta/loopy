@@ -17,10 +17,10 @@
  * Test by creating, modifying, or deleting files in watched directories.
  */
 
-#include "loopy.h"
-#include "loopySignal.h"
-#include "loopyTimer.h"
-#include "loopyWatch.h"
+#include "../src/loopy.h"
+#include "../src/loopySignal.h"
+#include "../src/loopyTimer.h"
+#include "../src/loopyWatch.h"
 
 #include <fcntl.h>
 #include <stdio.h>

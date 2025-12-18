@@ -63,11 +63,16 @@ struct loopyLoop {
         int writeFd;
         int readFd;
     } managementPipe;
-    int processingDepth;     /* Nesting level of event processing (deferred deletion) */
-    uint8_t stop:1;          /* Event loop should stop */
-    uint8_t deleting:1;      /* Loop is being deleted (use-after-free protection) */
-    uint8_t pendingDelete:1; /* Deletion requested while processing (deferred) */
-    uint8_t allocated:1;     /* Loop was heap-allocated (vs stack) */
+    /* Nesting level of event processing (deferred deletion) */
+    int processingDepth;
+    /* Event loop should stop */
+    uint8_t stop : 1;
+    /* Loop is being deleted (use-after-free protection) */
+    uint8_t deleting : 1;
+    /* Deletion requested while processing (deferred) */
+    uint8_t pendingDelete : 1;
+    /* Loop was heap-allocated (vs stack) */
+    uint8_t allocated : 1;
 };
 
 /* ============================================================================

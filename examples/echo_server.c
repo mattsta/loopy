@@ -20,10 +20,10 @@
  *   echo "Hello" | nc localhost 8080
  */
 
-#include "loopy.h"
-#include "loopySignal.h"
-#include "loopyStream.h"
-#include "loopyTimer.h"
+#include "../src/loopy.h"
+#include "../src/loopySignal.h"
+#include "../src/loopyStream.h"
+#include "../src/loopyTimer.h"
 
 #include "../deps/datakit/src/datakit.h"
 

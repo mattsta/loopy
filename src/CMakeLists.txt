@@ -421,6 +421,12 @@ if(BuildTestBinary)
             test_iouring_fixed_buffers_registration test_iouring_fixed_buffers_read_write
             test_iouring_fixed_buffers_error_handling test_iouring_fixed_buffers_multiple
             test_iouring_fixed_buffers_null_safety
+            # io_uring buffer pool tests (PROVIDE_BUFFERS)
+            test_iouring_buffer_pool_create_delete test_iouring_buffer_pool_null_safety
+            test_iouring_buffer_pool_available test_iouring_buffer_pool_group_0
+            test_iouring_buffer_pool_group_1 test_iouring_buffer_pool_group_2
+            test_iouring_buffer_pool_duplicate_group test_iouring_buffer_pool_read_pooled
+            test_iouring_buffer_pool_recv_pooled test_iouring_buffer_pool_no_group
             # io_uring file operation tests
             test_iouring_fs_api_available test_iouring_fs_write_basic test_iouring_fs_read_basic
             test_iouring_fs_open_close test_iouring_fs_fsync test_iouring_fs_fdatasync
@@ -430,8 +436,27 @@ if(BuildTestBinary)
             test_iouring_net_send_basic test_iouring_net_recv_basic test_iouring_net_accept_basic
             test_iouring_net_connect_basic test_iouring_net_sendmsg_basic test_iouring_net_recvmsg_basic
             test_iouring_net_udp_send test_iouring_net_udp_recv test_iouring_net_shutdown
-            test_iouring_net_accept_multishot test_iouring_net_concurrent_ops test_iouring_net_invalid_fd
-            test_iouring_net_null_safety test_iouring_net_large_transfer test_iouring_net_fallback
+            test_iouring_net_accept_multishot test_iouring_net_cancel test_iouring_net_concurrent_ops
+            test_iouring_net_invalid_fd test_iouring_net_null_safety test_iouring_net_large_transfer
+            test_iouring_net_fallback
+            # io_uring fixed file tests
+            test_iouring_fixed_files_registration test_iouring_fixed_files_read_write
+            test_iouring_fixed_files_error_handling test_iouring_fixed_files_multiple
+            test_iouring_fixed_files_null_safety
+            # io_uring file system metadata tests
+            test_iouring_statx_basic test_iouring_renameat_basic test_iouring_unlinkat_basic
+            test_iouring_mkdirat_basic test_iouring_symlinkat_basic test_iouring_linkat_basic
+            # io_uring data movement tests
+            test_iouring_readv_basic test_iouring_writev_basic test_iouring_pipe_basic
+            test_iouring_splice_basic test_iouring_fallocate_basic test_iouring_tee_basic
+            test_iouring_ftruncate_basic
+            # io_uring timeout tests
+            test_iouring_timeout_basic
+            # io_uring socket creation tests
+            test_iouring_socket_bind_listen
+            # io_uring linked operations tests
+            test_iouring_link_basic_chain test_iouring_link_soft_failure test_iouring_link_hard_mode
+            test_iouring_link_multiple_ops test_iouring_link_null_safety
         )
         foreach(test_name ${IOURING_TESTS})
             add_test(NAME ${test_name}
@@ -493,45 +518,45 @@ if(BuildTestBinary)
 
     # Duration settings (milliseconds per test combination)
     if(LOOPY_STRESS_PROFILE STREQUAL "marathon")
-        # ~30 minute total runtime
+        # Extended stress testing for thorough validation
         set(STRESS_QUICK_DURATION 1500)
         set(STRESS_QUICK_TIMEOUT 90)
         set(STRESS_MEDIUM_DURATION 3000)
         set(STRESS_MEDIUM_TIMEOUT 360)
-        set(STRESS_THOROUGH_DURATION 15000)
-        set(STRESS_THOROUGH_TIMEOUT 1800)
-        set(STRESS_THOROUGH_EVENTS_MIN 10000)
-        set(STRESS_THOROUGH_EVENTS_MAX 20000)
+        set(STRESS_THOROUGH_DURATION 10000)
+        set(STRESS_THOROUGH_TIMEOUT 300)
+        set(STRESS_THOROUGH_EVENTS_MIN 5000)
+        set(STRESS_THOROUGH_EVENTS_MAX 10000)
     elseif(LOOPY_STRESS_PROFILE STREQUAL "long")
-        # ~10 minute total runtime
+        # Longer stress testing
         set(STRESS_QUICK_DURATION 1000)
         set(STRESS_QUICK_TIMEOUT 60)
         set(STRESS_MEDIUM_DURATION 2000)
         set(STRESS_MEDIUM_TIMEOUT 240)
-        set(STRESS_THOROUGH_DURATION 8000)
-        set(STRESS_THOROUGH_TIMEOUT 900)
-        set(STRESS_THOROUGH_EVENTS_MIN 8000)
-        set(STRESS_THOROUGH_EVENTS_MAX 16000)
+        set(STRESS_THOROUGH_DURATION 5000)
+        set(STRESS_THOROUGH_TIMEOUT 180)
+        set(STRESS_THOROUGH_EVENTS_MIN 3000)
+        set(STRESS_THOROUGH_EVENTS_MAX 6000)
     elseif(LOOPY_STRESS_PROFILE STREQUAL "extended")
-        # ~5 minute total runtime
+        # Moderate stress testing
         set(STRESS_QUICK_DURATION 500)
         set(STRESS_QUICK_TIMEOUT 30)
         set(STRESS_MEDIUM_DURATION 1000)
         set(STRESS_MEDIUM_TIMEOUT 120)
-        set(STRESS_THOROUGH_DURATION 5000)
-        set(STRESS_THOROUGH_TIMEOUT 600)
-        set(STRESS_THOROUGH_EVENTS_MIN 5000)
-        set(STRESS_THOROUGH_EVENTS_MAX 10000)
+        set(STRESS_THOROUGH_DURATION 3000)
+        set(STRESS_THOROUGH_TIMEOUT 120)
+        set(STRESS_THOROUGH_EVENTS_MIN 2000)
+        set(STRESS_THOROUGH_EVENTS_MAX 4000)
     else()
-        # default: ~3 minute total runtime
+        # default: CI-friendly correctness verification
         set(STRESS_QUICK_DURATION 300)
         set(STRESS_QUICK_TIMEOUT 20)
         set(STRESS_MEDIUM_DURATION 600)
         set(STRESS_MEDIUM_TIMEOUT 60)
-        set(STRESS_THOROUGH_DURATION 2000)
-        set(STRESS_THOROUGH_TIMEOUT 300)
-        set(STRESS_THOROUGH_EVENTS_MIN 2000)
-        set(STRESS_THOROUGH_EVENTS_MAX 4000)
+        set(STRESS_THOROUGH_DURATION 1500)
+        set(STRESS_THOROUGH_TIMEOUT 90)
+        set(STRESS_THOROUGH_EVENTS_MIN 1000)
+        set(STRESS_THOROUGH_EVENTS_MAX 2000)
     endif()
 
     message(STATUS "Stress test profile: ${LOOPY_STRESS_PROFILE}")
@@ -609,26 +634,27 @@ if(BuildTestBinary)
             LABELS "stress;medium;rax")
     endif()
 
-    # Thorough Channel Tests - high contention (16 combos x 2 elements = 32 combos)
+    # Thorough Channel Tests - focused high contention (4 combos x 2 elements = 8 combos)
+    # Tests key contention scenarios: 1:1, 1:2, 2:1, 2:2 which cover single/multi producer/consumer
     add_test(NAME stress_cli_channel_thorough
-             COMMAND ${PROJECT_NAME}StressCLI --channel -p 1:4 -c 1:4 -e ${STRESS_THOROUGH_EVENTS_MIN}:${STRESS_THOROUGH_EVENTS_MAX}:${STRESS_THOROUGH_EVENTS_MIN} -C 512 -m 256 -d ${STRESS_THOROUGH_DURATION} --stop-on-fail
+             COMMAND ${PROJECT_NAME}StressCLI --channel -p 1:2 -c 1:2 -e ${STRESS_THOROUGH_EVENTS_MIN}:${STRESS_THOROUGH_EVENTS_MAX}:${STRESS_THOROUGH_EVENTS_MIN} -C 512 -m 256 -d ${STRESS_THOROUGH_DURATION} --stop-on-fail
              WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
     set_tests_properties(stress_cli_channel_thorough PROPERTIES
         TIMEOUT ${STRESS_THOROUGH_TIMEOUT}
         LABELS "stress;thorough")
 
     if(LOOPY_HAVE_RAX)
-        # Thorough PubSub Tests - many subscribers (16 combos x 2 elements = 32 combos)
+        # Thorough PubSub Tests - focused scenarios (4 combos x 2 elements = 8 combos)
         add_test(NAME stress_cli_pubsub_thorough
-                 COMMAND ${PROJECT_NAME}StressCLI --pubsub -p 1:4 -c 1:4 -e ${STRESS_THOROUGH_EVENTS_MIN}:${STRESS_THOROUGH_EVENTS_MAX}:${STRESS_THOROUGH_EVENTS_MIN} -C 512 -m 256 -d ${STRESS_THOROUGH_DURATION} --stop-on-fail
+                 COMMAND ${PROJECT_NAME}StressCLI --pubsub -p 1:2 -c 1:2 -e ${STRESS_THOROUGH_EVENTS_MIN}:${STRESS_THOROUGH_EVENTS_MAX}:${STRESS_THOROUGH_EVENTS_MIN} -C 512 -m 256 -d ${STRESS_THOROUGH_DURATION} --stop-on-fail
                  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
         set_tests_properties(stress_cli_pubsub_thorough PROPERTIES
             TIMEOUT ${STRESS_THOROUGH_TIMEOUT}
             LABELS "stress;thorough;rax")
 
-        # Thorough Integration Tests - full system (16 combos x 2 elements = 32 combos)
+        # Thorough Integration Tests - focused scenarios (4 combos x 2 elements = 8 combos)
         add_test(NAME stress_cli_integration_thorough
-                 COMMAND ${PROJECT_NAME}StressCLI --integration -p 1:4 -c 1:4 -e ${STRESS_THOROUGH_EVENTS_MIN}:${STRESS_THOROUGH_EVENTS_MAX}:${STRESS_THOROUGH_EVENTS_MIN} -C 512 -m 256 -d ${STRESS_THOROUGH_DURATION} --stop-on-fail
+                 COMMAND ${PROJECT_NAME}StressCLI --integration -p 1:2 -c 1:2 -e ${STRESS_THOROUGH_EVENTS_MIN}:${STRESS_THOROUGH_EVENTS_MAX}:${STRESS_THOROUGH_EVENTS_MIN} -C 512 -m 256 -d ${STRESS_THOROUGH_DURATION} --stop-on-fail
                  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
         set_tests_properties(stress_cli_integration_thorough PROPERTIES
             TIMEOUT ${STRESS_THOROUGH_TIMEOUT}

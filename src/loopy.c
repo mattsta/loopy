@@ -223,7 +223,8 @@ void loopyDeinit(loopyLoop *l) {
             l->fired = NULL;
         }
 
-        /* Free platform-specific internal state, safe to call even if already freed */
+        /* Free platform-specific internal state, safe to call even if already
+         * freed */
         loopyInternalFree(l);
 
         /* Zero out structure to ensure clean state */
@@ -234,9 +235,10 @@ void loopyDeinit(loopyLoop *l) {
 void loopyDelete(loopyLoop *l) {
     if (l) {
         /* IDEMPOTENT: If already deleted (state is NULL), nothing to do.
-         * This handles test suite cleanup calling delete after deferred completion. */
+         * This handles test suite cleanup calling delete after deferred
+         * completion. */
         if (!l->state && !l->timer && !l->events) {
-            return;  /* Already deleted */
+            return; /* Already deleted */
         }
 
         /* DEFERRED DELETION: If we're currently processing events,
@@ -244,8 +246,8 @@ void loopyDelete(loopyLoop *l) {
          * This prevents use-after-free when callbacks trigger deletion. */
         if (l->processingDepth > 0) {
             l->pendingDelete = true;
-            loopyStop(l);  /* Stop the event loop */
-            return;        /* Defer actual deletion */
+            loopyStop(l); /* Stop the event loop */
+            return;       /* Defer actual deletion */
         }
 
         /* Safe to delete now - not currently processing events */

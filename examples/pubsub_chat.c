@@ -43,10 +43,10 @@
  * Licensed under the Apache License, Version 2.0
  */
 
-#include "loopy.h"
-#include "loopyPubSub.h"
-#include "loopySignal.h"
-#include "loopyTimer.h"
+#include "../src/loopy.h"
+#include "../src/loopyPubSub.h"
+#include "../src/loopySignal.h"
+#include "../src/loopyTimer.h"
 
 #include "../deps/datakit/src/datakit.h"
 

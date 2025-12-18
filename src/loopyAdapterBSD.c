@@ -87,7 +87,7 @@ static void loopyInternalFree(loopyLoop *l) {
 
         close(s->kqfd);
         loopyInternalStateFree(s);
-        l->state = NULL;  /* Clear state pointer to prevent double-free */
+        l->state = NULL; /* Clear state pointer to prevent double-free */
     }
 }
 
