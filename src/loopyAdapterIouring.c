@@ -60,6 +60,29 @@
 
 /* io_uring_enter flags */
 #define IORING_ENTER_GETEVENTS (1U << 0)
+#define IORING_ENTER_SQ_WAKEUP (1U << 1)
+#define IORING_ENTER_SQ_WAIT (1U << 2)
+#define IORING_ENTER_EXT_ARG (1U << 3)
+
+/* Structure for io_uring_enter with extended arguments (timeout support).
+ * Defined locally to avoid liburing/kernel header dependencies. */
+#ifndef HAVE_IO_URING_GETEVENTS_ARG
+struct io_uring_getevents_arg {
+    uint64_t sigmask;
+    uint32_t sigmask_sz;
+    uint32_t pad;
+    uint64_t ts;
+};
+#endif
+
+/* Kernel timespec (always 64-bit) for timeout.
+ * Some systems define this in <linux/time_types.h> */
+#ifndef HAVE_KERNEL_TIMESPEC
+struct __kernel_timespec {
+    int64_t tv_sec;
+    long long tv_nsec;
+};
+#endif
 
 /* Submission queue entry opcodes */
 #define IORING_OP_NOP 0
@@ -171,6 +194,11 @@
 #define IORING_FEAT_CUR_PERSONALITY (1U << 4)
 #define IORING_FEAT_FAST_POLL (1U << 5)
 #define IORING_FEAT_POLL_32BITS (1U << 6)
+#define IORING_FEAT_SQPOLL_NONFIXED (1U << 7)
+#define IORING_FEAT_EXT_ARG (1U << 8)
+#define IORING_FEAT_NATIVE_WORKERS (1U << 9)
+#define IORING_FEAT_RSRC_TAGS (1U << 10)
+#define IORING_FEAT_CQE_SKIP (1U << 11)
 
 /* Multishot accept flag (Linux 5.19+) */
 #ifndef IORING_ACCEPT_MULTISHOT
@@ -347,6 +375,13 @@ static int io_uring_enter(int fd, unsigned to_submit, unsigned min_complete,
                           unsigned flags, void *sig) {
     return (int)syscall(__NR_io_uring_enter, fd, to_submit, min_complete, flags,
                         sig, 0);
+}
+
+/* io_uring_enter with extended arguments (for IORING_ENTER_EXT_ARG) */
+static int io_uring_enter2(int fd, unsigned to_submit, unsigned min_complete,
+                           unsigned flags, void *arg, size_t argsz) {
+    return (int)syscall(__NR_io_uring_enter, fd, to_submit, min_complete, flags,
+                        arg, argsz);
 }
 
 static int io_uring_register(int fd, unsigned opcode, void *arg,
@@ -2081,38 +2116,81 @@ static int loopyInternalPoll(loopyLoop *l, const struct timeval *tvp) {
     /* io_uring backend */
     IoUringState *u = &state->uring;
 
-    /* Calculate timeout */
+    /* Calculate timeout in milliseconds (-1 = block forever, 0 = non-blocking)
+     */
     int timeoutMs = tvp ? ((tvp->tv_sec * 1000) + (tvp->tv_usec / 1000)) : -1;
 
     /* First check if completions are already available (avoid syscall) */
     uint32_t head = __atomic_load_n(u->cqHead, __ATOMIC_ACQUIRE);
     uint32_t tail = __atomic_load_n(u->cqTail, __ATOMIC_ACQUIRE);
 
-    /* If no completions and we need to wait, use ppoll on ring fd */
-    if (head == tail && timeoutMs != 0) {
-        struct timespec ts;
-        struct timespec *tsp = NULL;
+    /* Calculate pending SQEs to submit */
+    uint32_t pending =
+        *u->sqTail - __atomic_load_n(u->sqHead, __ATOMIC_ACQUIRE);
 
-        if (timeoutMs > 0) {
-            ts.tv_sec = timeoutMs / 1000;
-            ts.tv_nsec = (timeoutMs % 1000) * 1000000;
-            tsp = &ts;
+    int ret;
+
+    /* Determine wait behavior based on available completions and timeout.
+     * Following liburing's approach: use wait_nr to tell kernel how many
+     * completions to wait for before returning. */
+    if (head != tail) {
+        /* Completions already available - just submit any pending SQEs and
+         * retrieve completions without waiting */
+        ret = io_uring_enter(u->ringFd, pending, 0, IORING_ENTER_GETEVENTS,
+                             NULL);
+    } else if (timeoutMs == 0) {
+        /* Non-blocking poll - don't wait for completions */
+        ret = io_uring_enter(u->ringFd, pending, 0, IORING_ENTER_GETEVENTS,
+                             NULL);
+    } else if (timeoutMs == -1) {
+        /* Block forever until at least one completion.
+         * This is the key fix: wait_nr=1 tells kernel to block until
+         * at least one CQE is available. */
+        ret = io_uring_enter(u->ringFd, pending, 1, IORING_ENTER_GETEVENTS,
+                             NULL);
+    } else if (u->features & IORING_FEAT_EXT_ARG) {
+        /* Has timeout and kernel supports extended arguments.
+         * Use IORING_ENTER_EXT_ARG with timeout structure (kernel 5.11+).
+         * This is the proper liburing approach for timeout waits. */
+        struct __kernel_timespec ts = {
+            .tv_sec = timeoutMs / 1000,
+            .tv_nsec = (int64_t)(timeoutMs % 1000) * 1000000,
+        };
+        struct io_uring_getevents_arg arg = {
+            .sigmask = 0,
+            .sigmask_sz = 0,
+            .pad = 0,
+            .ts = (uint64_t)(uintptr_t)&ts,
+        };
+        ret = io_uring_enter2(u->ringFd, pending, 1,
+                              IORING_ENTER_GETEVENTS | IORING_ENTER_EXT_ARG,
+                              &arg, sizeof(arg));
+        /* -ETIME means timeout expired, which is not an error for us */
+        if (ret < 0 && errno == ETIME) {
+            ret = 0;
         }
-
+    } else {
+        /* Has timeout but no EXT_ARG support (older kernels).
+         * Fall back to ppoll + non-blocking io_uring_enter.
+         * This is less efficient but works on older kernels. */
+        struct timespec ts = {
+            .tv_sec = timeoutMs / 1000,
+            .tv_nsec = (timeoutMs % 1000) * 1000000L,
+        };
         struct pollfd pfd = {
             .fd = u->ringFd,
             .events = POLLIN,
         };
-        ppoll(&pfd, 1, tsp, NULL);
+        ppoll(&pfd, 1, &ts, NULL);
+
+        /* After ppoll returns, try to get completions without waiting.
+         * Recheck pending SQEs as they may have changed. */
+        pending = *u->sqTail - __atomic_load_n(u->sqHead, __ATOMIC_ACQUIRE);
+        ret = io_uring_enter(u->ringFd, pending, 0, IORING_ENTER_GETEVENTS,
+                             NULL);
     }
 
-    /* Get completions from kernel - submit any pending + retrieve completions
-     */
-    uint32_t pending =
-        *u->sqTail - __atomic_load_n(u->sqHead, __ATOMIC_ACQUIRE);
-    int ret =
-        io_uring_enter(u->ringFd, pending, 0, IORING_ENTER_GETEVENTS, NULL);
-    if (ret < 0 && errno != EINTR && errno != EAGAIN) {
+    if (ret < 0 && errno != EINTR && errno != EAGAIN && errno != ETIME) {
         return 0;
     }
 

@@ -84,9 +84,15 @@ class DoxygenAudit:
         # State tracking
         in_doxygen_block = False
         last_doxygen_ended_line = -1
+        brace_depth = 0  # Track depth inside function bodies
 
         for line_num, line in enumerate(lines):
             stripped = line.strip()
+
+            # Track brace depth to skip content inside static inline function bodies
+            brace_depth += line.count('{') - line.count('}')
+            if brace_depth < 0:
+                brace_depth = 0
 
             # Track Doxygen blocks
             if "/**" in stripped:
@@ -101,6 +107,10 @@ class DoxygenAudit:
                 continue
 
             if not stripped or stripped.startswith("//") or stripped.startswith("*"):
+                continue
+
+            # Skip function calls inside function bodies
+            if brace_depth > 0:
                 continue
 
             if self.is_function_declaration(line):
