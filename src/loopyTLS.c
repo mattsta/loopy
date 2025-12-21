@@ -11,6 +11,13 @@
 
 #include "loopyPlatform.h"
 
+/* Only compile TLS implementation if TLS support is enabled */
+#ifndef LOOPY_HAVE_TLS
+#define LOOPY_HAVE_TLS 0
+#endif
+
+#if LOOPY_HAVE_TLS
+
 #include "loopyAsync.h"
 #include "loopyNet.h"
 #include "loopyTLS.h"
@@ -791,3 +798,5 @@ const char *loopyTLSResultName(loopyTLSResult result) {
         return "UNKNOWN";
     }
 }
+
+#endif /* LOOPY_HAVE_TLS */

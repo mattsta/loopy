@@ -22,21 +22,23 @@ deps_add(datakit
     EXCLUDE_FROM_ALL
 )
 
-# mbedtls - TLS/SSL library
+# mbedtls - TLS/SSL library (optional, controlled by USE_TLS)
 # Note: GIT_SHALLOW, GIT_PROGRESS, and PATCH_CMAKE_VERSION inherit from global defaults
 # Note: mbedtls 4.x renamed mbedcrypto to tfpsacrypto
-deps_add(mbedtls
-    GIT https://github.com/Mbed-TLS/mbedtls.git
-    TAG v4.0.0
-    TARGETS mbedtls mbedx509 tfpsacrypto
-    OPTIONS
-        ENABLE_PROGRAMS=OFF
-        ENABLE_TESTING=OFF
-        MBEDTLS_FATAL_WARNINGS=OFF
-        CMAKE_DISABLE_FIND_PACKAGE_Doxygen=TRUE
-        CMAKE_POSITION_INDEPENDENT_CODE=ON
-    EXCLUDE_FROM_ALL
-)
+if(USE_TLS)
+    deps_add(mbedtls
+        GIT https://github.com/Mbed-TLS/mbedtls.git
+        TAG v4.0.0
+        TARGETS mbedtls mbedx509 tfpsacrypto
+        OPTIONS
+            ENABLE_PROGRAMS=OFF
+            ENABLE_TESTING=OFF
+            MBEDTLS_FATAL_WARNINGS=OFF
+            CMAKE_DISABLE_FIND_PACKAGE_Doxygen=TRUE
+            CMAKE_POSITION_INDEPENDENT_CODE=ON
+        EXCLUDE_FROM_ALL
+    )
+endif()
 
 # rax - Radix tree (optional - only if present locally)
 # Note: rax is optional and should be manually placed in deps/rax if needed

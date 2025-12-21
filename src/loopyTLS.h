@@ -36,7 +36,15 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 #include <sys/types.h>
+
+/* Check if TLS support is enabled at compile time.
+ * Set by CMake via -DLOOPY_HAVE_TLS=1 or -DLOOPY_HAVE_TLS=0
+ * If not defined, default to disabled for safety. */
+#ifndef LOOPY_HAVE_TLS
+#define LOOPY_HAVE_TLS 0
+#endif
 
 /* ====================================================================
  * Types
@@ -169,6 +177,8 @@ typedef void loopyTLSCloseCallback(loopyTLS *tls, void *userData);
 /* ====================================================================
  * Context Lifecycle
  * ==================================================================== */
+
+#if LOOPY_HAVE_TLS
 
 /**
  * Initialize context configuration with defaults.
@@ -621,3 +631,222 @@ loopyTLSResult loopyTLSInit(void);
  * @endcode
  */
 void loopyTLSCleanup(void);
+
+#else /* !LOOPY_HAVE_TLS */
+
+/* ====================================================================
+ * Stub Implementations (TLS disabled at compile time)
+ * ====================================================================
+ * These inline stubs allow code to compile without TLS support.
+ * All functions return appropriate error values indicating TLS
+ * is not available.
+ */
+
+static inline void loopyTLSContextConfigInit(loopyTLSContextConfig *config,
+                                              loopyTLSMode mode) {
+    (void)config;
+    (void)mode;
+}
+
+static inline loopyTLSContext *loopyTLSContextNew(
+    const loopyTLSContextConfig *config) {
+    (void)config;
+    return NULL;
+}
+
+static inline void loopyTLSContextFree(loopyTLSContext *ctx) {
+    (void)ctx;
+}
+
+static inline loopyTLSResult loopyTLSContextLoadCert(loopyTLSContext *ctx,
+                                                      const char *certFile) {
+    (void)ctx;
+    (void)certFile;
+    return LOOPY_TLS_ERROR;
+}
+
+static inline loopyTLSResult loopyTLSContextLoadKey(loopyTLSContext *ctx,
+                                                     const char *keyFile,
+                                                     const char *password) {
+    (void)ctx;
+    (void)keyFile;
+    (void)password;
+    return LOOPY_TLS_ERROR;
+}
+
+static inline loopyTLSResult loopyTLSContextLoadCA(loopyTLSContext *ctx,
+                                                    const char *caFile,
+                                                    const char *caPath) {
+    (void)ctx;
+    (void)caFile;
+    (void)caPath;
+    return LOOPY_TLS_ERROR;
+}
+
+static inline loopyTLS *loopyTLSNew(loopyLoop *loop, loopyTLSContext *ctx,
+                                     int fd) {
+    (void)loop;
+    (void)ctx;
+    (void)fd;
+    return NULL;
+}
+
+static inline loopyTLSResult loopyTLSSetHostname(loopyTLS *tls,
+                                                  const char *hostname) {
+    (void)tls;
+    (void)hostname;
+    return LOOPY_TLS_ERROR;
+}
+
+static inline loopyTLSResult loopyTLSHandshake(loopyTLS *tls) {
+    (void)tls;
+    return LOOPY_TLS_ERROR;
+}
+
+static inline bool loopyTLSHandshakeAsync(loopyTLS *tls,
+                                           loopyTLSHandshakeCallback *cb,
+                                           void *userData) {
+    (void)tls;
+    (void)cb;
+    (void)userData;
+    return false;
+}
+
+static inline loopyTLSResult loopyTLSClose(loopyTLS *tls) {
+    (void)tls;
+    return LOOPY_TLS_ERROR;
+}
+
+static inline void loopyTLSFree(loopyTLS *tls) {
+    (void)tls;
+}
+
+static inline ssize_t loopyTLSRead(loopyTLS *tls, void *buf, size_t len) {
+    (void)tls;
+    (void)buf;
+    (void)len;
+    return LOOPY_TLS_ERROR;
+}
+
+static inline ssize_t loopyTLSWrite(loopyTLS *tls, const void *data,
+                                     size_t len) {
+    (void)tls;
+    (void)data;
+    (void)len;
+    return LOOPY_TLS_ERROR;
+}
+
+static inline bool loopyTLSReadAsync(loopyTLS *tls, void *buf, size_t len,
+                                      loopyTLSReadCallback *cb, void *userData) {
+    (void)tls;
+    (void)buf;
+    (void)len;
+    (void)cb;
+    (void)userData;
+    return false;
+}
+
+static inline bool loopyTLSWriteAsync(loopyTLS *tls, const void *data,
+                                       size_t len, loopyTLSWriteCallback *cb,
+                                       void *userData) {
+    (void)tls;
+    (void)data;
+    (void)len;
+    (void)cb;
+    (void)userData;
+    return false;
+}
+
+static inline size_t loopyTLSPending(const loopyTLS *tls) {
+    (void)tls;
+    return 0;
+}
+
+static inline void loopyTLSGetInfo(const loopyTLS *tls, loopyTLSInfo *info) {
+    (void)tls;
+    if (info) {
+        info->version = NULL;
+        info->ciphersuite = NULL;
+        info->alpnProtocol = NULL;
+        info->serverName = NULL;
+        info->resumed = false;
+        info->handshakeComplete = false;
+    }
+}
+
+static inline bool loopyTLSIsHandshakeDone(const loopyTLS *tls) {
+    (void)tls;
+    return false;
+}
+
+static inline int loopyTLSGetFD(const loopyTLS *tls) {
+    (void)tls;
+    return -1;
+}
+
+static inline const void *loopyTLSGetPeerCert(const loopyTLS *tls) {
+    (void)tls;
+    return NULL;
+}
+
+static inline size_t loopyTLSGetVerifyResult(const loopyTLS *tls, char *buf,
+                                              size_t size) {
+    (void)tls;
+    if (buf && size > 0) {
+        buf[0] = '\0';
+    }
+    return 0;
+}
+
+static inline int loopyTLSGetError(const loopyTLS *tls) {
+    (void)tls;
+    return -1;
+}
+
+static inline size_t loopyTLSGetErrorString(const loopyTLS *tls, char *buf,
+                                             size_t size) {
+    (void)tls;
+    if (buf && size > 0) {
+        const char *msg = "TLS not supported (compiled without USE_TLS)";
+        size_t len = strlen(msg);
+        if (len >= size) {
+            len = size - 1;
+        }
+        memcpy(buf, msg, len);
+        buf[len] = '\0';
+        return len;
+    }
+    return 0;
+}
+
+static inline const char *loopyTLSResultName(loopyTLSResult result) {
+    switch (result) {
+    case LOOPY_TLS_OK:
+        return "OK";
+    case LOOPY_TLS_ERROR:
+        return "ERROR";
+    case LOOPY_TLS_CLOSED:
+        return "CLOSED";
+    case LOOPY_TLS_AGAIN:
+        return "AGAIN";
+    case LOOPY_TLS_WANT_READ:
+        return "WANT_READ";
+    case LOOPY_TLS_WANT_WRITE:
+        return "WANT_WRITE";
+    case LOOPY_TLS_HANDSHAKE:
+        return "HANDSHAKE";
+    case LOOPY_TLS_VERIFY_FAILED:
+        return "VERIFY_FAILED";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+static inline loopyTLSResult loopyTLSInit(void) {
+    return LOOPY_TLS_ERROR;
+}
+
+static inline void loopyTLSCleanup(void) {
+}
+
+#endif /* LOOPY_HAVE_TLS */

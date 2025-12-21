@@ -35,7 +35,9 @@
 #include "loopyStream.h"
 #include "loopyStressTest.h"
 #include "loopySys.h"
+#if LOOPY_HAVE_TLS
 #include "loopyTLS.h"
+#endif
 #include "loopyTTY.h"
 #include "loopyTimer.h"
 #include "loopyUDP.h"
@@ -16664,6 +16666,7 @@ static int test_concurrency_threaded(void) {
     return 1;
 }
 
+#if LOOPY_HAVE_TLS
 /* ====================================================================
  * TLS Tests
  * ==================================================================== */
@@ -16805,6 +16808,7 @@ static int test_tls_null_safety(void) {
 
     return 1;
 }
+#endif /* LOOPY_HAVE_TLS */
 
 #if LOOPY_HAVE_RAX
 /* ====================================================================
@@ -20636,6 +20640,7 @@ static void register_all_tests(void) {
     RUN_TEST(test_concurrency_stats);
     RUN_TEST(test_concurrency_threaded);
 
+#if LOOPY_HAVE_TLS
     /* TLS tests */
     TEST_GROUP("TLS Tests");
     RUN_TEST(test_tls_init_cleanup);
@@ -20644,6 +20649,7 @@ static void register_all_tests(void) {
     RUN_TEST(test_tls_result_names);
     RUN_TEST(test_tls_connection_create);
     RUN_TEST(test_tls_null_safety);
+#endif /* LOOPY_HAVE_TLS */
 
 #if LOOPY_HAVE_RAX
     /* PubSub tests */

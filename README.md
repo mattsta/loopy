@@ -310,8 +310,9 @@ ctest -j8
 # Build with io_uring support on Linux (requires kernel 5.1+)
 cmake -DUSE_IOURING=ON ..
 
-# Build with TLS support
-cmake -DUSE_TLS=ON ..
+# Build without TLS support (TLS is enabled by default)
+# This removes the mbedtls dependency for lighter builds
+cmake -DUSE_TLS=OFF ..
 
 # Debug build with symbols
 cmake -DCMAKE_BUILD_TYPE=Debug ..
@@ -319,6 +320,12 @@ cmake -DCMAKE_BUILD_TYPE=Debug ..
 # Release build with optimizations
 cmake -DCMAKE_BUILD_TYPE=Release ..
 ```
+
+| Option             | Default | Description                                                               |
+| ------------------ | ------- | ------------------------------------------------------------------------- |
+| `USE_IOURING`      | OFF     | Enable io_uring backend on Linux (requires kernel 5.1+)                   |
+| `USE_TLS`          | ON      | Enable TLS/SSL support via mbedtls. Set to OFF to skip mbedtls dependency |
+| `CMAKE_BUILD_TYPE` | -       | Set to `Debug` for symbols or `Release` for optimizations                 |
 
 ### Linking
 

@@ -80,13 +80,24 @@ endif()
 # Get loopy root directory (this CMakeLists.txt is in loopy/src/)
 set(LOOPY_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/..)
 
-# Include mbedtls headers for TLS support
-# mbedtls 4.x has split crypto into tf-psa-crypto; need multiple include paths
-# Note: DepsManager creates symlinks in deps/ to maintain backward compatibility
-include_directories(${LOOPY_ROOT_DIR}/deps/mbedtls/include)
-include_directories(${LOOPY_ROOT_DIR}/deps/mbedtls/tf-psa-crypto/include)
-include_directories(${LOOPY_ROOT_DIR}/deps/mbedtls/tf-psa-crypto/drivers/builtin/include)
-include_directories(${LOOPY_ROOT_DIR}/deps/mbedtls/tf-psa-crypto/drivers/builtin/include/mbedtls/private)
+# Set LOOPY_HAVE_TLS based on USE_TLS option from parent
+if(USE_TLS)
+    set(LOOPY_HAVE_TLS ON)
+    add_definitions(-DLOOPY_HAVE_TLS=1)
+    message(STATUS "loopy TLS support: ENABLED")
+
+    # Include mbedtls headers for TLS support
+    # mbedtls 4.x has split crypto into tf-psa-crypto; need multiple include paths
+    # Note: DepsManager creates symlinks in deps/ to maintain backward compatibility
+    include_directories(${LOOPY_ROOT_DIR}/deps/mbedtls/include)
+    include_directories(${LOOPY_ROOT_DIR}/deps/mbedtls/tf-psa-crypto/include)
+    include_directories(${LOOPY_ROOT_DIR}/deps/mbedtls/tf-psa-crypto/drivers/builtin/include)
+    include_directories(${LOOPY_ROOT_DIR}/deps/mbedtls/tf-psa-crypto/drivers/builtin/include/mbedtls/private)
+else()
+    set(LOOPY_HAVE_TLS OFF)
+    add_definitions(-DLOOPY_HAVE_TLS=0)
+    message(STATUS "loopy TLS support: DISABLED")
+endif()
 
 # Include rax headers for topic-based pub/sub routing (if available)
 if(LOOPY_HAVE_RAX)
@@ -124,8 +135,12 @@ set(LOOPY_SOURCES
     loopySys.c
     loopyChannel.c
     loopyRateLimit.c
-    loopyTLS.c
 )
+
+# Add TLS support if enabled
+if(LOOPY_HAVE_TLS)
+    list(APPEND LOOPY_SOURCES loopyTLS.c)
+endif()
 
 # Add rax-dependent modules if rax is available
 if(LOOPY_HAVE_RAX)
@@ -166,9 +181,16 @@ set_target_properties(${PROJECT_NAME}-static  PROPERTIES OUTPUT_NAME ${PROJECT_N
 set_target_properties(${PROJECT_NAME}-library PROPERTIES OUTPUT_NAME ${PROJECT_NAME})
 # pthread needed for async DNS module
 find_package(Threads REQUIRED)
-# Link with mbedtls for TLS support (mbedtls 4.x uses tfpsacrypto instead of mbedcrypto)
-target_link_libraries(${PROJECT_NAME}-static PUBLIC datakit-static mbedtls mbedx509 tfpsacrypto Threads::Threads)
-target_link_libraries(${PROJECT_NAME}-library datakit-library mbedtls mbedx509 tfpsacrypto Threads::Threads)
+
+# Build list of link libraries (TLS is optional)
+set(LOOPY_LINK_LIBS Threads::Threads)
+if(LOOPY_HAVE_TLS)
+    # Link with mbedtls for TLS support (mbedtls 4.x uses tfpsacrypto instead of mbedcrypto)
+    list(APPEND LOOPY_LINK_LIBS mbedtls mbedx509 tfpsacrypto)
+endif()
+
+target_link_libraries(${PROJECT_NAME}-static PUBLIC datakit-static ${LOOPY_LINK_LIBS})
+target_link_libraries(${PROJECT_NAME}-library datakit-library ${LOOPY_LINK_LIBS})
 
 # SOVERSION only needs to increment when introducing *breaking* changes.
 # Otherwise, just increase VERSION with normal feature additions or maint.
@@ -183,14 +205,14 @@ if(BuildTestBinary)
     add_library(${PROJECT_NAME}-test-infrastructure OBJECT loopyStressTest.c)
 
     add_executable(${PROJECT_NAME}Test loopyTest.c)
-    target_link_libraries(${PROJECT_NAME}Test ${PROJECT_NAME}-static datakit-static mbedtls mbedx509 tfpsacrypto Threads::Threads)
+    target_link_libraries(${PROJECT_NAME}Test ${PROJECT_NAME}-static datakit-static ${LOOPY_LINK_LIBS})
 
     add_executable(${PROJECT_NAME}UnitTest loopyUnitTest.c $<TARGET_OBJECTS:${PROJECT_NAME}-test-infrastructure>)
-    target_link_libraries(${PROJECT_NAME}UnitTest ${PROJECT_NAME}-static datakit-static mbedtls mbedx509 tfpsacrypto Threads::Threads)
+    target_link_libraries(${PROJECT_NAME}UnitTest ${PROJECT_NAME}-static datakit-static ${LOOPY_LINK_LIBS})
 
     # Stress testing CLI tool with dynamic configuration
     add_executable(${PROJECT_NAME}StressCLI loopyStressCLI.c $<TARGET_OBJECTS:${PROJECT_NAME}-test-infrastructure>)
-    target_link_libraries(${PROJECT_NAME}StressCLI ${PROJECT_NAME}-static datakit-static mbedtls mbedx509 tfpsacrypto Threads::Threads)
+    target_link_libraries(${PROJECT_NAME}StressCLI ${PROJECT_NAME}-static datakit-static ${LOOPY_LINK_LIBS})
 
     if(APPLE)
         add_custom_command(TARGET ${PROJECT_NAME}Test POST_BUILD COMMAND dsymutil ${PROJECT_NAME}Test COMMENT "Generating OS X Debug Info")
@@ -344,7 +366,10 @@ if(BuildTestBinary)
         test_ratelimit_stats test_ratelimit_peek test_ratelimit_algorithm_names
         test_concurrency_basic test_concurrency_limit test_concurrency_release
         test_concurrency_stats test_concurrency_threaded
-        # TLS Tests
+    )
+
+    # TLS-dependent tests (only registered if LOOPY_HAVE_TLS is ON)
+    set(LOOPY_TLS_TEST_NAMES
         test_tls_init_cleanup test_tls_context_create test_tls_context_config
         test_tls_result_names test_tls_connection_create test_tls_null_safety
     )
@@ -398,6 +423,18 @@ if(BuildTestBinary)
             TIMEOUT 60
             LABELS "unit")
     endforeach()
+
+    # Register TLS-dependent tests (only if TLS is available)
+    if(LOOPY_HAVE_TLS)
+        foreach(test_name ${LOOPY_TLS_TEST_NAMES})
+            add_test(NAME ${test_name}
+                     COMMAND ${PROJECT_NAME}UnitTest ${test_name}
+                     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+            set_tests_properties(${test_name} PROPERTIES
+                TIMEOUT 60
+                LABELS "unit;tls")
+        endforeach()
+    endif()
 
     # Register rax-dependent tests (only if rax is available)
     if(LOOPY_HAVE_RAX)
