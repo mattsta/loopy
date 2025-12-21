@@ -32,7 +32,16 @@
 #
 # ======================================================
 
-include_guard(GLOBAL)
+# Global guard that works across file copies (include_guard uses path which doesn't work
+# when we sync DepsManager to child projects)
+if(DEFINED _DEPS_MANAGER_LOADED)
+    return()
+endif()
+set(_DEPS_MANAGER_LOADED TRUE CACHE INTERNAL "DepsManager already loaded")
+
+# Capture the path to THIS file at load time - used for syncing to child projects
+set(_DEPS_MANAGER_SELF_PATH "${CMAKE_CURRENT_LIST_FILE}" CACHE INTERNAL "Path to DepsManager.cmake")
+
 include(FetchContent)
 
 # Internal state
@@ -43,12 +52,16 @@ set(_DEPS_RESOLVED FALSE)
 # Default configuration
 set(DEPS_DEFAULT_MODE "auto" CACHE STRING "Default dependency mode: auto, local, remote")
 set(DEPS_LOCAL_ROOT "$ENV{HOME}/repos" CACHE PATH "Default root for local checkouts")
-set(DEPS_DIR "${CMAKE_SOURCE_DIR}/deps" CACHE PATH "Dependencies directory")
 set(DEPS_VENDOR_DIRS "vendor;external;third_party;deps" CACHE STRING "Directories to check for vendored deps")
 set(DEPS_CMAKE_MIN_VERSION "" CACHE STRING "Global cmake_minimum_required version to patch (empty = no patching)")
 set(DEPS_DEFAULT_GIT_SHALLOW ON CACHE BOOL "Default shallow clone setting for dependencies")
 set(DEPS_DEFAULT_GIT_PROGRESS ON CACHE BOOL "Default git progress display setting")
-set(DEPS_SYMLINK_DIR "${CMAKE_SOURCE_DIR}/deps" CACHE PATH "Directory for dependency symlinks")
+
+# Per-project paths - these are set dynamically in deps_init() based on the calling project
+# DO NOT use CMAKE_SOURCE_DIR here - that's always the top-level project
+# These will be overwritten by deps_init() with the correct project-local paths
+set(_DEPS_PROJECT_DIR "" CACHE INTERNAL "Source directory of project that called deps_init()")
+set(_DEPS_SYMLINK_DIR "" CACHE INTERNAL "Symlink directory for current project's dependencies")
 
 # ============================================================================
 # PUBLIC API
@@ -66,13 +79,25 @@ Options:
   CMAKE_MIN_VERSION v  - Patch all deps to this cmake_minimum_required (empty = no patching)
   DEFAULT_GIT_SHALLOW  - Enable shallow clones by default (ON/OFF)
   DEFAULT_GIT_PROGRESS - Show git progress by default (ON/OFF)
-  SYMLINK_DIR path     - Directory for dependency symlinks (default: ${CMAKE_SOURCE_DIR}/deps)
+  SYMLINK_DIR path     - Directory for dependency symlinks (default: <project>/deps)
 ]]
 function(deps_init)
     set(options QUIET DEFAULT_GIT_SHALLOW DEFAULT_GIT_PROGRESS)
     set(oneValueArgs LOCAL_ROOT CMAKE_MIN_VERSION SYMLINK_DIR)
     set(multiValueArgs VENDOR_DIRS)
     cmake_parse_arguments(ARG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+    # CRITICAL: Use CMAKE_CURRENT_SOURCE_DIR to get the directory of the PROJECT
+    # that called deps_init(), NOT CMAKE_SOURCE_DIR which is always the top-level.
+    # This ensures sub-projects get their own deps/ symlinks.
+    set(_DEPS_PROJECT_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE INTERNAL "" FORCE)
+
+    # Default symlink dir to <project>/deps unless overridden
+    if(ARG_SYMLINK_DIR)
+        set(_DEPS_SYMLINK_DIR "${ARG_SYMLINK_DIR}" CACHE INTERNAL "" FORCE)
+    else()
+        set(_DEPS_SYMLINK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps" CACHE INTERNAL "" FORCE)
+    endif()
 
     if(ARG_LOCAL_ROOT)
         set(DEPS_LOCAL_ROOT "${ARG_LOCAL_ROOT}" CACHE PATH "" FORCE)
@@ -94,16 +119,12 @@ function(deps_init)
         set(DEPS_DEFAULT_GIT_PROGRESS ${ARG_DEFAULT_GIT_PROGRESS} CACHE BOOL "" FORCE)
     endif()
 
-    if(ARG_SYMLINK_DIR)
-        set(DEPS_SYMLINK_DIR "${ARG_SYMLINK_DIR}" CACHE PATH "" FORCE)
-    endif()
-
     # Load local overrides if they exist
-    if(EXISTS "${DEPS_DIR}/.local.cmake")
+    if(EXISTS "${_DEPS_PROJECT_DIR}/deps/.local.cmake")
         if(NOT ARG_QUIET)
-            message(STATUS "[DepsManager] Loading local overrides from ${DEPS_DIR}/.local.cmake")
+            message(STATUS "[DepsManager] Loading local overrides from ${_DEPS_PROJECT_DIR}/deps/.local.cmake")
         endif()
-        include("${DEPS_DIR}/.local.cmake")
+        include("${_DEPS_PROJECT_DIR}/deps/.local.cmake")
     endif()
 
     # Check for environment variable overrides
@@ -316,7 +337,7 @@ deps_lock()
 Generate a lock file with exact versions of all dependencies.
 ]]
 function(deps_lock)
-    set(lock_file "${DEPS_DIR}/deps.lock")
+    set(lock_file "${_DEPS_PROJECT_DIR}/deps/deps.lock")
 
     file(WRITE "${lock_file}" "# Dependency Lock File\n")
     file(APPEND "${lock_file}" "# Generated: ${CMAKE_CURRENT_LIST_FILE}\n")
@@ -414,10 +435,10 @@ function(_deps_resolve_one name quiet)
             set(resolved_source "${local_path}")
         endif()
 
-        # Try deps directory
-        if(NOT resolved_mode AND EXISTS "${DEPS_DIR}/${name}/CMakeLists.txt")
+        # Try deps directory (relative to project that called deps_init)
+        if(NOT resolved_mode AND EXISTS "${_DEPS_PROJECT_DIR}/deps/${name}/CMakeLists.txt")
             set(resolved_mode "LOCAL")
-            set(resolved_source "${DEPS_DIR}/${name}")
+            set(resolved_source "${_DEPS_PROJECT_DIR}/deps/${name}")
         endif()
 
         # Try default local root
@@ -570,6 +591,16 @@ if(\"${name}\" STREQUAL \"mbedtls\")
     endif()
 endif()
 
+# Sync DepsManager: If the fetched project has its own DepsManager, overwrite it
+# with the parent project's version to ensure consistent behavior and latest fixes.
+# Note: _DEPS_MANAGER_SELF_PATH is captured at load time and embedded here at script-generation time
+set(child_deps_manager \"${source_dir}/cmake/deps-manager/DepsManager.cmake\")
+set(parent_deps_manager \"${_DEPS_MANAGER_SELF_PATH}\")
+if(EXISTS \"\${child_deps_manager}\")
+    message(STATUS \"Syncing DepsManager.cmake to ${name}\")
+    file(COPY_FILE \"\${parent_deps_manager}\" \"\${child_deps_manager}\")
+endif()
+
 message(STATUS \"${name} download complete\")
 ")
 
@@ -626,6 +657,11 @@ message(STATUS \"${name} download complete\")
         set(resolved_source "${git_url}@${git_tag}")
     endif()
 
+    # Save current project directories before MakeAvailable
+    # This is necessary because nested projects may call deps_init() and overwrite these
+    set(_SAVED_DEPS_PROJECT_DIR "${_DEPS_PROJECT_DIR}")
+    set(_SAVED_DEPS_SYMLINK_DIR "${_DEPS_SYMLINK_DIR}")
+
     # Make available
     if(exclude_from_all)
         FetchContent_MakeAvailable(${name})
@@ -634,6 +670,10 @@ message(STATUS \"${name} download complete\")
     else()
         FetchContent_MakeAvailable(${name})
     endif()
+
+    # Restore project directories after MakeAvailable (nested deps_init() may have changed them)
+    set(_DEPS_PROJECT_DIR "${_SAVED_DEPS_PROJECT_DIR}" CACHE INTERNAL "" FORCE)
+    set(_DEPS_SYMLINK_DIR "${_SAVED_DEPS_SYMLINK_DIR}" CACHE INTERNAL "" FORCE)
 
     # Ensure <name>_SOURCE_DIR is set and propagated to parent scope
     # FetchContent sets <lowercasename>_SOURCE_DIR, but we need to ensure it's available
@@ -645,7 +685,8 @@ message(STATUS \"${name} download complete\")
         endif()
 
         # Always create symlink for backward compatibility with relative includes
-        set(symlink_path "${DEPS_SYMLINK_DIR}/${name}")
+        # Use _DEPS_SYMLINK_DIR which is set per-project in deps_init()
+        set(symlink_path "${_DEPS_SYMLINK_DIR}/${name}")
         if(NOT EXISTS "${symlink_path}")
             file(CREATE_LINK "${${name_lower}_SOURCE_DIR}" "${symlink_path}" SYMBOLIC)
             if(NOT quiet)
